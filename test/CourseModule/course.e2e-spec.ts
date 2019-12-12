@@ -3,11 +3,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../../src/app.module';
 import { Connection, EntityManager, QueryRunner, Repository } from 'typeorm';
-import { ClientCredentials } from '../../src/SecurityModule/entity';
+import { ClientCredentials, Role } from '../../src/SecurityModule/entity';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ClientCredentialsEnum, GrantTypeEnum, RoleEnum } from '../../src/SecurityModule/enum';
 import { Constants } from '../../src/CommonsModule';
-import { CourseRepository, Course } from '../../src/CourseModule';
+import { Course } from '../../src/CourseModule';
+import { NewCourseDTO, CourseUpdateDTO } from 'src/CourseModule/dto';
 
 const stringToBase64 = (string: string) => {
   return Buffer.from(string).toString('base64');
@@ -18,7 +19,7 @@ describe('CourseController (e2e)', () => {
   let moduleFixture: TestingModule;
   let queryRunner: QueryRunner;
   let authorization: string;
-  const courseUrl: string = `/${Constants.API_PREFIX}/${Constants.API_VERSION_1}/${Constants.COURSE_ENDPOINT}`;
+  const courseUrl = `/${Constants.API_PREFIX}/${Constants.API_VERSION_1}/${Constants.COURSE_ENDPOINT}`;
 
   beforeAll(async () => {
     moduleFixture = await Test.createTestingModule({
@@ -36,11 +37,16 @@ describe('CourseController (e2e)', () => {
     // @ts-ignore
     queryRunner = manager.queryRunner = dbConnection.createQueryRunner('master');
 
+    const roleRepository: Repository<Role> = moduleFixture.get<Repository<Role>>(getRepositoryToken(Role));
+    const role: Role = new Role();
+    role.name = RoleEnum.ADMIN;
+    const savedRole = await roleRepository.save(role);
+
     const clientCredentialRepository: Repository<ClientCredentials> = moduleFixture.get<Repository<ClientCredentials>>(getRepositoryToken(ClientCredentials));
     const clientCredentials: ClientCredentials = new ClientCredentials();
     clientCredentials.name = ClientCredentialsEnum.FRONT;
     clientCredentials.secret = 'test2';
-    clientCredentials.role = RoleEnum.ADMIN;
+    clientCredentials.role = savedRole;
     await clientCredentialRepository.save(clientCredentials);
     authorization = stringToBase64(`${clientCredentials.name}:${clientCredentials.secret}`);
   });
@@ -53,7 +59,29 @@ describe('CourseController (e2e)', () => {
     await queryRunner.rollbackTransaction();
   });
 
-  it('should find all courses', async () => {
+  it('should add course', async (done) => {
+
+    return request(app.getHttpServer())
+      .post('/oauth/token')
+      .set('Authorization', `Basic ${authorization}`)
+      .set('Content-Type', 'multipart/form-data')
+      .field('grant_type', GrantTypeEnum.CLIENT_CREDENTIALS)
+      .then((res) => {
+        return request(app.getHttpServer())
+          .post(courseUrl)
+          .set('Authorization', `Bearer ${res.body.accessToken}`)
+          .send({
+            title: 'Teste E3E',
+            thumbUrl: 'http://teste.com/thumb.png',
+            authorId: '1',
+            description: 'Este é um registro de teste'
+          } as NewCourseDTO)
+          .expect(201)
+          .then(() => done());
+      });
+  });
+
+  it('should find all courses', async (done) => {
     return request(app.getHttpServer())
       .post('/oauth/token')
       .set('Authorization', `Basic ${authorization}`)
@@ -65,37 +93,39 @@ describe('CourseController (e2e)', () => {
           .set('Accept', 'application/json')
           .set('Authorization', `Bearer ${res.body.accessToken}`)
           .expect('Content-Type', /json/)
-          .expect(200);
+          .expect(200)
+          .then(() => done());
       });
   });
 
-
   it('should find course by id', async () => {
-    const course: Course = new Course();
-    const courseRepository: Repository<Course> = moduleFixture.get<Repository<Course>>(getRepositoryToken(ClientCredentials));
-
-    course.description = 'Teste';
-    course.thumbUrl = '';
-    course.authorId = '1';
-    course.id = '2';
-    const savedCourse = await courseRepository.save(course);
-
     return request(app.getHttpServer())
       .post('/oauth/token')
       .set('Authorization', `Basic ${authorization}`)
       .set('Content-Type', 'multipart/form-data')
       .field('grant_type', GrantTypeEnum.CLIENT_CREDENTIALS)
-      .then(async (res) => {
+      .then((res) => {
         return request(app.getHttpServer())
-          .get(`${courseUrl}/${savedCourse.id}`)
+          .post(courseUrl)
           .set('Authorization', `Bearer ${res.body.accessToken}`)
-          .expect((response) => {
-            expect(response.body.description).toBe(savedCourse.description);
+          .send({
+            title: 'Teste E3E',
+            thumbUrl: 'http://teste.com/thumb.png',
+            authorId: '1'
+          } as NewCourseDTO)
+          .then((_res) => {
+            return request(app.getHttpServer())
+              .get(`${courseUrl}/${_res.body.id}`)
+              .set('Authorization', `Bearer ${res.body.accessToken}`)
+              .expect((response) => {
+                expect(response.body.description).toBe(_res.body.description);
+              })
+              .expect(200);
           });
       });
   });
 
-  it('should return 404 if ID doesnt exist', async () => {
+  it('should return 404 if ID doesnt exist', async (done) => {
     return request(app.getHttpServer())
       .post('/oauth/token')
       .set('Authorization', `Basic ${authorization}`)
@@ -107,10 +137,67 @@ describe('CourseController (e2e)', () => {
           .set('Accept', 'application/json')
           .set('Authorization', `Bearer ${res.body.accessToken}`)
           .expect('Content-Type', /json/)
-          .expect(404);
+          .expect(404)
+          .then(() => done());
       });
   });
 
+
+  it('should delete course by id', async () => {
+    return request(app.getHttpServer())
+      .post('/oauth/token')
+      .set('Authorization', `Basic ${authorization}`)
+      .set('Content-Type', 'multipart/form-data')
+      .field('grant_type', GrantTypeEnum.CLIENT_CREDENTIALS)
+      .then((res) => {
+        return request(app.getHttpServer())
+          .post(courseUrl)
+          .set('Authorization', `Bearer ${res.body.accessToken}`)
+          .send({
+            title: 'Teste E3E',
+            thumbUrl: 'http://teste.com/thumb.png',
+            authorId: '1',
+            description: 'Este é um registro de teste'
+          } as NewCourseDTO)
+          .then((_res) => {
+            return request(app.getHttpServer())
+              .delete(`${courseUrl}/${_res.body.id}`)
+              .set('Authorization', `Bearer ${res.body.accessToken}`)
+              .expect(200);
+          });
+      });
+  });
+
+  it('should update course', async () => {
+    return request(app.getHttpServer())
+      .post('/oauth/token')
+      .set('Authorization', `Basic ${authorization}`)
+      .set('Content-Type', 'multipart/form-data')
+      .field('grant_type', GrantTypeEnum.CLIENT_CREDENTIALS)
+      .then((res) => {
+        return request(app.getHttpServer())
+          .post(courseUrl)
+          .set('Authorization', `Bearer ${res.body.accessToken}`)
+          .send({
+            title: 'Teste E3E',
+            thumbUrl: 'http://teste.com/thumb.png',
+            authorId: '1',
+            description: 'Este é um registro de teste'
+          } as NewCourseDTO)
+          .then((_res) => {
+            _res.body.title = 'Test Update';
+            return request(app.getHttpServer())
+              .post(`${courseUrl}/${_res.body.id}`)
+              .send({
+                title: _res.body.title,
+                thumbUrl: _res.body.thumb,
+                authorId: _res.body.authorId
+              } as CourseUpdateDTO)
+              .set('Authorization', `Bearer ${res.body.accessToken}`)
+              .expect(200);
+          });
+      });
+  });
 
   afterAll(async () => {
     await app.close();

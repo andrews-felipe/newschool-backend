@@ -1,4 +1,4 @@
-#@NewSchool/back
+# @NewSchool/back
 
 > Backend da NewSchool, desenvolvido em NodeJS
 > Banco de Dados MySQL
@@ -6,33 +6,25 @@
 
 # Como rodar o projeto
 
-Você pode rodar o projeto direto da sua máquina. Mas dessa
-maneira terá instalar todas as dependências por sua conta.  
-Caso opte por essa opção, para rodar o backend basta rodar
-os seguintes comandos:
+Você pode rodar o projeto direto da sua máquina.
 
-1 - Instalar o NestJs cli globalmente na sua máquina  
->**npm i -g @nestjs/cli**
+1 - Faça uma cópia do arquivo **.env.example** para **.env**
 
-
-2- Rodar o comando para instalar as depedencias do projeto
+2- Instale as depedências do projeto
 >**npm install**
 
-3- Configurar as variaveis de ambiente
->**DATABASE_HOST=127.0.0.1**
->**DATABASE_NAME=newschool**
->**DATABASE_USERNAME=root**
->**DATABASE_PASSWORD=123456**
->**NODE_ENV=test**
->**JWT_SECRET=secret**
->**EXPIRES_IN_ACCESS_TOKEN=12000**
->**EXPIRES_IN_REFRESH_TOKEN=24000**
+3- Inicie a aplicação
 
-4- Rodar o comando para iniciar o ambiente de desenvolvimento local
 >**npm run start:dev**
 
+4- Veja o swagger pelo navegador
+
+>**http://localhost:3000/api/**
+
+## Docker
+
 Ou, você pode optar por rodar o projeto via Docker. Para isso precisamos 
-que você tenha instalado o Docker e o Docker Compose na sua máquina.
+que você tenha instalado o Docker na sua máquina.
 Após isso basta rodar o seguinte comando:
 
 >**docker-compose up**
@@ -47,7 +39,9 @@ Isso acontecerá automaticamente.
 
 # Guidelines
 
-# Como contribuir
+
+# Como contribuir passo-a-passo
+
 
 1 - CONHEÇA O PROJETO **New School**
 
@@ -83,7 +77,3 @@ https://github.com/NewSchoolBR/newschool-backend
 Hora de colocar a mão na massa. A parte mais divertida, trabalhar no código-fonte. Depois de concluir e testar, envie e aguarde o PULL REQUEST ser aprovado.
 
 5 MISSÃO CUMPRIDA. VC AJUDOU O PROJETO. ❤️
-
-# Código de conduta
-
-# Bugs
